@@ -9,8 +9,7 @@ from mcp.server import FastMCP
 app = FastMCP('get_WeatherForecast')
 
 @app.tool()
-async def get_weather_forecast( location: str = "beijing", 
-                               days: int = 5) -> List[Dict[str, str]]:
+async def get_weather_forecast(location: str = "beijing", days: int = 5) -> List[Dict[str, str]]:
     """
     获取指定地点的未来几天天气预报
     
@@ -33,35 +32,25 @@ async def get_weather_forecast( location: str = "beijing",
     
     async with httpx.AsyncClient() as client:
         response = await client.get(url, params=params)
-        response.raise_for_status()  # 检查HTTP响应状态码
+        response.raise_for_status()
         
         data = response.json()
         results = data.get('results', [{}])[0]
         forecast_list = results.get('daily', [])
         
-        # 转换数据格式，仅保留关键信息
         weather_forecast = []
         for forecast in forecast_list:
-            date = forecast.get('date')
-            weather = forecast.get('text_day')
-            temp_high = forecast.get('high')
-            temp_low = forecast.get('low')
-            humidity = forecast.get('humidity')
-            wind = f"{forecast['wind_direction']} {forecast['wind_scale']}级"
-            rainfall = f"{forecast.get('rainfall')}mm"
- 
             weather_forecast.append({
-                'date': date,
-                'weather': weather,
-                'temp_high': temp_high,
-                'temp_low': temp_low,
-                'humidity': humidity,
-                'wind': wind,
-                'rainfall': rainfall
+                'date': forecast.get('date'),
+                'weather': forecast.get('text_day'),
+                'temp_high': forecast.get('high'),
+                'temp_low': forecast.get('low'),
+                'humidity': forecast.get('humidity'),
+                'wind': f"{forecast['wind_direction']} {forecast['wind_scale']}级",
+                'rainfall': f"{forecast.get('rainfall')}mm"
             })
             
         return weather_forecast
-
 
 @app.tool()
 async def web_search(query: str) -> str:
@@ -74,16 +63,13 @@ async def web_search(query: str) -> str:
     Returns:
         搜索结果的总结
     """
-
     async with httpx.AsyncClient() as client:
         response = await client.post(
             'https://open.bigmodel.cn/api/paas/v4/tools',
             headers={'Authorization': 'ac48f03d267c44f4b4b6438cf154ac3a.u9ZbXnLbK7ogl7wi'},
             json={
                 'tool': 'web-search-pro',
-                'messages': [
-                    {'role': 'user', 'content': query}
-                ],
+                'messages': [{'role': 'user', 'content': query}],
                 'stream': False
             }
         )
@@ -91,14 +77,10 @@ async def web_search(query: str) -> str:
         res_data = []
         for choice in response.json()['choices']:
             for message in choice['message']['tool_calls']:
-                search_results = message.get('search_result')
-                if not search_results:
-                    continue
-                for result in search_results:
-                    res_data.append(result['content'])
+                if search_results := message.get('search_result'):
+                    res_data.extend(result['content'] for result in search_results)
 
         return '\n\n\n'.join(res_data)
-    
 
 if __name__ == "__main__":
     print("get_WeatherForecast 服务启动")
